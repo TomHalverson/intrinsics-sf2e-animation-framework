@@ -1,0 +1,162 @@
+<form class="isaf-config-form" autocomplete="off">
+
+  {{!-- Tab Navigation --}}
+  <nav class="tabs" data-group="primary">
+    <a class="item" data-tab="groups">
+      <i class="fas fa-crosshairs"></i> {{localize "ISAF.Config.Tab.Groups"}}
+    </a>
+    <a class="item" data-tab="categories">
+      <i class="fas fa-layer-group"></i> {{localize "ISAF.Config.Tab.Categories"}}
+    </a>
+    <a class="item" data-tab="overrides">
+      <i class="fas fa-sliders-h"></i> {{localize "ISAF.Config.Tab.Overrides"}}
+    </a>
+  </nav>
+
+  <div class="tab-content">
+
+    {{!-- ==================== Weapon Groups Tab ==================== --}}
+    <div class="tab isaf-tab-content" data-tab="groups" data-group="primary">
+      <p style="color: #8899aa; font-size: 12px; margin-bottom: 8px;">
+        Each weapon group has a default JS animation script. You can override any group with a Foundry macro.
+        Leave the macro selector blank to use the default script.
+      </p>
+
+      <table class="isaf-mapping-table">
+        <thead>
+          <tr>
+            <th style="width: 120px;">{{localize "ISAF.Config.WeaponGroup"}}</th>
+            <th>{{localize "ISAF.Config.DefaultScript"}}</th>
+            <th>{{localize "ISAF.Config.MacroOverride"}}</th>
+            <th style="width: 60px;">{{localize "ISAF.Config.Preview"}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each groupRows}}
+          <tr>
+            <td class="category-label">{{this.label}}</td>
+            <td>
+              <span class="isaf-default-script" data-script="{{this.defaultScript}}">
+                <i class="fas fa-file-code"></i> {{this.defaultScript}}
+              </span>
+            </td>
+            <td>
+              <select name="group_{{this.key}}_macro" class="isaf-macro-select">
+                <option value="">— Use default script —</option>
+                {{#each ../macros}}
+                <option value="{{this.id}}" {{#if (eq this.id ../macroOverride)}}selected{{/if}}>{{this.name}}</option>
+                {{/each}}
+              </select>
+            </td>
+            <td>
+              <button type="button" class="isaf-btn-test" title="Test this animation">
+                <i class="fas fa-play"></i>
+              </button>
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    {{!-- ==================== Weapon Categories Tab ==================== --}}
+    <div class="tab isaf-tab-content" data-tab="categories" data-group="primary">
+      <p style="color: #8899aa; font-size: 12px; margin-bottom: 8px;">
+        Weapon category scripts are used as fallbacks when no weapon group match is found.
+        Override with a macro, or leave blank to use the default script.
+      </p>
+
+      <table class="isaf-mapping-table">
+        <thead>
+          <tr>
+            <th style="width: 120px;">{{localize "ISAF.Config.WeaponCategory"}}</th>
+            <th>{{localize "ISAF.Config.DefaultScript"}}</th>
+            <th>{{localize "ISAF.Config.MacroOverride"}}</th>
+            <th style="width: 60px;">{{localize "ISAF.Config.Preview"}}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{#each categoryRows}}
+          <tr>
+            <td class="category-label">{{this.label}}</td>
+            <td>
+              <span class="isaf-default-script" data-script="{{this.defaultScript}}">
+                <i class="fas fa-file-code"></i> {{this.defaultScript}}
+              </span>
+            </td>
+            <td>
+              <select name="cat_{{this.key}}_macro" class="isaf-macro-select">
+                <option value="">— Use default script —</option>
+                {{#each ../macros}}
+                <option value="{{this.id}}" {{#if (eq this.id ../macroOverride)}}selected{{/if}}>{{this.name}}</option>
+                {{/each}}
+              </select>
+            </td>
+            <td>
+              <button type="button" class="isaf-btn-test" title="Test this animation">
+                <i class="fas fa-play"></i>
+              </button>
+            </td>
+          </tr>
+          {{/each}}
+        </tbody>
+      </table>
+    </div>
+
+    {{!-- ==================== Per-Item Overrides Tab ==================== --}}
+    <div class="tab isaf-tab-content" data-tab="overrides" data-group="primary">
+      {{#if overrideRows.length}}
+        <table class="isaf-mapping-table">
+          <thead>
+            <tr>
+              <th style="width: 180px;">Item Name</th>
+              <th>{{localize "ISAF.Config.MacroOverride"}}</th>
+              <th style="width: 60px;">Remove</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each overrideRows}}
+            <tr>
+              <td class="category-label">{{this.itemName}}</td>
+              <td>
+                {{#if this.macroName}}
+                  <span class="isaf-macro-ref">
+                    <i class="fas fa-scroll"></i> {{this.macroName}}
+                  </span>
+                {{else}}
+                  <span class="isaf-no-macro">No macro set</span>
+                {{/if}}
+              </td>
+              <td>
+                <button type="button" class="btn-remove-override" data-item-id="{{this.itemId}}">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </td>
+            </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      {{else}}
+        <div class="isaf-empty-state">
+          <i class="fas fa-info-circle"></i>
+          {{localize "ISAF.Config.NoOverrides"}}
+        </div>
+      {{/if}}
+    </div>
+
+  </div>
+
+  {{!-- Footer --}}
+  <footer>
+    <button type="button" class="isaf-btn-refresh-cache">
+      <i class="fas fa-sync-alt"></i> Reload Scripts
+    </button>
+    <button type="button" class="isaf-btn-reset">
+      <i class="fas fa-undo"></i> {{localize "ISAF.Config.Reset"}}
+    </button>
+    <button type="submit" class="isaf-btn-save">
+      <i class="fas fa-save"></i> {{localize "ISAF.Config.Save"}}
+    </button>
+  </footer>
+
+</form>

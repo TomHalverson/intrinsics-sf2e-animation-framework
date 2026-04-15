@@ -1,0 +1,86 @@
+{
+  "ISAF.ModuleTitle": "SF2E Animation Framework",
+
+  "ISAF.Settings.Enabled.Name": "Enable Animations",
+  "ISAF.Settings.Enabled.Hint": "Master toggle for all auto-attack animations.",
+
+  "ISAF.Settings.OnlyOnHit.Name": "Only Animate on Hit",
+  "ISAF.Settings.OnlyOnHit.Hint": "If enabled, animations only play when the attack hits. If disabled, animations play on every attack roll.",
+
+  "ISAF.Settings.AnimationScale.Name": "Animation Scale",
+  "ISAF.Settings.AnimationScale.Hint": "Global scale multiplier for all animations (0.1 - 3.0).",
+
+  "ISAF.Settings.AnimationSpeed.Name": "Animation Speed",
+  "ISAF.Settings.AnimationSpeed.Hint": "Speed multiplier for projectile travel (0.5 = half speed, 2.0 = double speed).",
+
+  "ISAF.Settings.MissAnimation.Name": "Show Miss Effect",
+  "ISAF.Settings.MissAnimation.Hint": "When 'Only Animate on Hit' is enabled, show a modified animation for misses (reduced opacity, offset target).",
+
+  "ISAF.Settings.SoundEnabled.Name": "Enable Sounds",
+  "ISAF.Settings.SoundEnabled.Hint": "Allow animation scripts to play sound effects.",
+
+  "ISAF.Settings.SoundVolume.Name": "Sound Volume",
+  "ISAF.Settings.SoundVolume.Hint": "Volume level passed to animation scripts (0.0 - 1.0).",
+
+  "ISAF.Settings.CustomMappings.Name": "Custom Macro Overrides",
+  "ISAF.Settings.CustomMappings.Hint": "JSON overrides mapping weapon groups to Foundry macros. Managed via config UI.",
+
+  "ISAF.Settings.OpenConfig.Name": "Animation Configuration",
+  "ISAF.Settings.OpenConfig.Hint": "Open the animation mapping configuration panel.",
+  "ISAF.Settings.OpenConfig.Label": "Configure Animations",
+
+  "ISAF.Settings.DebugMode.Name": "Debug Mode",
+  "ISAF.Settings.DebugMode.Hint": "Log detailed animation resolution info to the console for troubleshooting.",
+
+  "ISAF.Config.Title": "SF2E Animation Configuration",
+  "ISAF.Config.WeaponGroup": "Weapon Group",
+  "ISAF.Config.WeaponCategory": "Weapon Category",
+  "ISAF.Config.DefaultScript": "Default Script",
+  "ISAF.Config.MacroOverride": "Macro Override",
+  "ISAF.Config.Preview": "Test",
+  "ISAF.Config.Reset": "Reset to Defaults",
+  "ISAF.Config.Save": "Save",
+  "ISAF.Config.TestAnimation": "Test",
+
+  "ISAF.Config.Tab.Groups": "By Weapon Group",
+  "ISAF.Config.Tab.Categories": "By Category",
+  "ISAF.Config.Tab.Overrides": "Item Overrides",
+
+  "ISAF.Config.NoOverrides": "No per-item macro overrides configured. Right-click a weapon in a character sheet to assign a macro override.",
+
+  "ISAF.Config.GroupLabel.laser": "Laser",
+  "ISAF.Config.GroupLabel.plasma": "Plasma",
+  "ISAF.Config.GroupLabel.projectile": "Projectile",
+  "ISAF.Config.GroupLabel.flame": "Flame",
+  "ISAF.Config.GroupLabel.cryo": "Cryo",
+  "ISAF.Config.GroupLabel.shock": "Shock",
+  "ISAF.Config.GroupLabel.sonic": "Sonic",
+  "ISAF.Config.GroupLabel.disintegrator": "Disintegrator",
+  "ISAF.Config.GroupLabel.disruption": "Disruption",
+  "ISAF.Config.GroupLabel.bow": "Bow",
+  "ISAF.Config.GroupLabel.crossbow": "Crossbow",
+  "ISAF.Config.GroupLabel.firearm": "Firearm",
+  "ISAF.Config.GroupLabel.dart": "Dart",
+  "ISAF.Config.GroupLabel.sling": "Sling",
+  "ISAF.Config.GroupLabel.sword": "Sword",
+  "ISAF.Config.GroupLabel.axe": "Axe",
+  "ISAF.Config.GroupLabel.knife": "Knife",
+  "ISAF.Config.GroupLabel.brawling": "Brawling",
+  "ISAF.Config.GroupLabel.club": "Club",
+  "ISAF.Config.GroupLabel.hammer": "Hammer",
+  "ISAF.Config.GroupLabel.flail": "Flail",
+  "ISAF.Config.GroupLabel.pick": "Pick",
+  "ISAF.Config.GroupLabel.polearm": "Polearm",
+  "ISAF.Config.GroupLabel.spear": "Spear",
+  "ISAF.Config.GroupLabel.shield": "Shield",
+  "ISAF.Config.GroupLabel.bomb": "Bomb",
+
+  "ISAF.Config.CategoryLabel.simple": "Simple",
+  "ISAF.Config.CategoryLabel.martial": "Martial",
+  "ISAF.Config.CategoryLabel.advanced": "Advanced",
+  "ISAF.Config.CategoryLabel.unarmed": "Unarmed",
+
+  "ISAF.Notifications.SequencerMissing": "SF2E Animation Framework requires the Sequencer module to be installed and active.",
+  "ISAF.Notifications.AnimationPlayed": "Playing animation: {animation}",
+  "ISAF.Notifications.NoAnimationFound": "No animation mapping found for weapon group: {group}"
+}
