@@ -78,12 +78,15 @@ export async function loadAnimationScript(scriptPath) {
  * @param {Token}   context.sourceToken
  * @param {Token}   context.targetToken
  * @param {boolean} context.isHit
+ * @param {Token|object} context.animationTarget
  * @param {number}  context.scale
  * @param {number}  context.speed
  * @param {string}  context.attackMode - 'melee' | 'ranged'
  * @param {Object}  context.weaponInfo - The full WeaponInfo object
  * @param {number}  context.soundVolume
  * @param {boolean} context.soundEnabled
+ * @param {string|null} context.soundPath
+ * @param {string|null} context.elementalStyle
  * @returns {boolean} True if the script was found and executed successfully.
  */
 export async function executeAnimationScript(scriptPath, context) {

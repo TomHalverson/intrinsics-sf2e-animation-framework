@@ -44,23 +44,24 @@ Each script must export a default async function:
 export default async function laser(seq, context) {
   // seq     — a Sequencer Sequence instance (add effects/sounds to it)
   // context — { sourceToken, targetToken, isHit, scale, speed, attackMode,
-  //             weaponInfo, soundVolume, soundEnabled }
+  //             weaponInfo, soundVolume, soundEnabled, soundPath,
+  //             elementalStyle, animationTarget }
 
   const effect = seq.effect()
     .file('jb2a.lasershot.red')
     .atLocation(context.sourceToken)
-    .stretchTo(context.targetToken)
+    .stretchTo(context.animationTarget ?? context.targetToken)
     .scale(context.scale)
     .zIndex(10);
 
   if (!context.isHit) {
-    effect.opacity(0.5).missed();
+    effect.opacity(0.5);
   }
 
   // Optionally add sound
-  if (context.soundEnabled) {
+  if (context.soundEnabled && context.soundPath) {
     seq.sound()
-      .file('modules/intrinsics-sf2e-animation-framework/animations/ranged/laser_fire.ogg')
+      .file(context.soundPath)
       .volume(context.soundVolume);
   }
 }
@@ -82,6 +83,9 @@ You just need to add effects and sounds to the sequence.
 | `weaponInfo`   | object  | Full weapon metadata (group, category, range, damage, traits) |
 | `soundVolume`  | number  | 0.0 to 1.0                                       |
 | `soundEnabled` | boolean | Whether the user has sounds enabled              |
+| `soundPath`    | string? | Optional resolved sound file for the animation   |
+| `elementalStyle` | string? | Melee elemental overlay type (`fire`, `cold`, etc.) |
+| `animationTarget` | Token\|Point | Actual visual target; ranged misses may be offset |
 
 ### WeaponInfo Object
 
@@ -160,3 +164,9 @@ If not, the framework falls back to built-in JB2A path lookups.
 
 You can replace any script with your own effects — use `.webm` files,
 custom Sequencer database paths, or any other Sequencer-compatible source.
+
+## Miss Offsets and Optional Sounds
+
+- Ranged misses now receive an `animationTarget` point offset from the real target so projectiles visibly sail past instead of clipping the token.
+- If the free `pf2e-creature-sounds` module is installed, the framework will auto-assign a few elemental/melee sound defaults.
+- Scripts and macros can always ignore `soundPath`, or replace it with any Foundry/core/module audio path they prefer.

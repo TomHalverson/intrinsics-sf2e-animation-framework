@@ -16,15 +16,17 @@
 //   soundEnabled — boolean
 // ============================================
 
-export default async function laser(seq, { sourceToken, targetToken, isHit, scale, speed }) {
+import { addAnimationSound, applyMissEffect, getAnimationTarget } from '../helpers.js';
+
+export default async function laser(seq, context) {
+  const { sourceToken, scale } = context;
   const effect = seq.effect()
     .file('jb2a.lasershot.red')
     .atLocation(sourceToken)
-    .stretchTo(targetToken)
+    .stretchTo(getAnimationTarget(context))
     .scale(scale)
     .zIndex(10);
 
-  if (!isHit) {
-    effect.opacity(0.5).missed();
-  }
+  applyMissEffect(effect, context, { opacity: 0.5, randomRotation: false });
+  addAnimationSound(seq, context);
 }

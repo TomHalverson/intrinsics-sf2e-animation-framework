@@ -5,15 +5,17 @@
 // "crossbow", "dart", and "sling" weapon groups.
 // ============================================
 
-export default async function projectile(seq, { sourceToken, targetToken, isHit, scale, speed }) {
+import { addAnimationSound, applyMissEffect, getAnimationTarget } from '../helpers.js';
+
+export default async function projectile(seq, context) {
+  const { sourceToken, scale } = context;
   const effect = seq.effect()
     .file('jb2a.bullet.01.orange')
     .atLocation(sourceToken)
-    .stretchTo(targetToken)
+    .stretchTo(getAnimationTarget(context))
     .scale(scale)
     .zIndex(10);
 
-  if (!isHit) {
-    effect.opacity(0.5).missed();
-  }
+  applyMissEffect(effect, context, { opacity: 0.5, randomRotation: false });
+  addAnimationSound(seq, context);
 }

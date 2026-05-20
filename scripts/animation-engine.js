@@ -244,6 +244,8 @@ export class AnimationEngine {
         macro: animData.macro ?? null,
         script: animData.script ?? null,
         animation: animData.animation ?? null,
+        sound: animData.sound ?? null,
+        elementalStyle: animData.elementalStyle ?? null,
         scale: finalScale,
         speed: finalSpeed,
         targets: targets.length,
@@ -254,16 +256,20 @@ export class AnimationEngine {
     // 6. Play the animation for each target
     for (const targetToken of targets) {
       try {
+        const animationTarget = this._resolveAnimationTarget(sourceToken, targetToken, attackMode, isHit);
         const context = {
           sourceToken,
           targetToken,
+          animationTarget,
           isHit,
           scale: finalScale,
           speed: finalSpeed,
           attackMode,
           weaponInfo,
           soundVolume,
-          soundEnabled
+          soundEnabled,
+          soundPath: animData.sound ?? null,
+          elementalStyle: animData.elementalStyle ?? null
         };
 
         // Priority: macro override → animation script → legacy file path
@@ -294,7 +300,8 @@ export class AnimationEngine {
             finalSpeed,
             soundEnabled,
             soundVolume,
-            isHit
+            isHit,
+            animationTarget
           });
         }
       } catch (err) {
@@ -316,10 +323,11 @@ export class AnimationEngine {
    * @param {boolean} params.soundEnabled
    * @param {number} params.soundVolume
    * @param {boolean} params.isHit
+   * @param {Token|object} params.animationTarget
    */
   async _playSequencerAnimation({
     sourceToken, targetToken, animData, attackMode,
-    finalScale, finalSpeed, soundEnabled, soundVolume, isHit
+    finalScale, finalSpeed, soundEnabled, soundVolume, isHit, animationTarget
   }) {
     // Ensure Sequencer is available
     if (typeof Sequence === 'undefined') {
@@ -335,7 +343,7 @@ export class AnimationEngine {
       const effect = seq.effect()
         .file(animData.animation)
         .atLocation(sourceToken)
-        .stretchTo(targetToken)
+        .stretchTo(animationTarget)
         .scale(finalScale)
         .zIndex(10);
 
@@ -351,16 +359,13 @@ export class AnimationEngine {
       const effect = seq.effect()
         .file(animData.animation)
         .atLocation(sourceToken)
-        .stretchTo(targetToken)
+        .stretchTo(animationTarget)
         .scale(finalScale)
         .speed(finalSpeed)
         .zIndex(10);
 
       if (!isHit) {
-        // Miss: offset the endpoint and reduce opacity
-        const missOffset = this._calculateMissOffset(sourceToken, targetToken);
-        effect.opacity(0.5)
-          .missed();
+        effect.opacity(0.5);
       }
     }
 
@@ -483,12 +488,34 @@ export class AnimationEngine {
       target.center.y - source.center.y,
       target.center.x - source.center.x
     );
-    // Perpendicular offset, randomly left or right
+
     const perpAngle = angle + (Math.random() > 0.5 ? Math.PI / 2 : -Math.PI / 2);
-    const distance = gridSize * (0.5 + Math.random() * 0.5);
+    const lateralDistance = gridSize * (0.45 + Math.random() * 0.35);
+    const forwardDistance = gridSize * (-0.1 + Math.random() * 0.7);
+
     return {
-      x: Math.cos(perpAngle) * distance,
-      y: Math.sin(perpAngle) * distance
+      x: (Math.cos(perpAngle) * lateralDistance) + (Math.cos(angle) * forwardDistance),
+      y: (Math.sin(perpAngle) * lateralDistance) + (Math.sin(angle) * forwardDistance)
+    };
+  }
+
+  /**
+   * Resolve the actual visual target location for an animation.
+   * Ranged misses get an offset point so projectiles visibly miss.
+   *
+   * @param {Token} sourceToken
+   * @param {Token} targetToken
+   * @param {'melee'|'ranged'} attackMode
+   * @param {boolean} isHit
+   * @returns {Token|{x:number,y:number}}
+   */
+  _resolveAnimationTarget(sourceToken, targetToken, attackMode, isHit) {
+    if (attackMode !== 'ranged' || isHit) return targetToken;
+
+    const missOffset = this._calculateMissOffset(sourceToken, targetToken);
+    return {
+      x: targetToken.center.x + missOffset.x,
+      y: targetToken.center.y + missOffset.y
     };
   }
 }

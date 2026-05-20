@@ -6,7 +6,29 @@
 // ============================================
 
 import { GROUP_ANIMATIONS, CATEGORY_ANIMATIONS, DAMAGE_TYPE_ANIMATIONS, JB2A_FALLBACKS } from './animation-map.js';
-import { getSetting, MODULE_ID } from './settings.js';
+import { getSetting } from './settings.js';
+import { resolveOptionalSoundPath } from '../animations/helpers.js';
+
+const ELEMENTAL_GROUP_TYPES = {
+  flame: 'fire',
+  cryo: 'cold',
+  shock: 'electricity',
+  sonic: 'sonic',
+  disruption: 'mental',
+  disintegrator: 'void'
+};
+
+const MELEE_ELEMENTAL_TYPES = new Set([
+  'fire',
+  'cold',
+  'electricity',
+  'acid',
+  'sonic',
+  'mental',
+  'poison',
+  'vitality',
+  'void'
+]);
 
 /**
  * @typedef {Object} WeaponInfo
@@ -118,6 +140,7 @@ export function getAttackMode(info) {
  */
 export function resolveAnimation(info) {
   const debug = getSetting('debugMode');
+  const attackMode = getAttackMode(info);
 
   if (debug) {
     console.log(`[ISAF] Resolving animation for: ${info.itemName}`, info);
@@ -134,28 +157,46 @@ export function resolveAnimation(info) {
   const customMappings = _getCustomMappings();
   if (info.weaponGroup && customMappings[info.weaponGroup]) {
     if (debug) console.log(`[ISAF] → Using custom mapping for group: ${info.weaponGroup}`);
-    return customMappings[info.weaponGroup];
+    return _decorateAnimation(customMappings[info.weaponGroup], info, attackMode);
+  }
+
+  // 2b. Custom weapon category macro override
+  if (info.weaponCategory && customMappings[`cat_${info.weaponCategory}`]) {
+    if (debug) console.log(`[ISAF] → Using custom mapping for category: ${info.weaponCategory}`);
+    return _decorateAnimation(customMappings[`cat_${info.weaponCategory}`], info, attackMode);
+  }
+
+  // 2c. Elemental melee groups (cryo/flame/shock/etc.) should use a melee animation,
+  // not the default ranged beam for the same group key.
+  if (attackMode === 'melee' && info.weaponGroup && ELEMENTAL_GROUP_TYPES[info.weaponGroup]) {
+    if (debug) console.log(`[ISAF] → Using elemental melee script for group: ${info.weaponGroup}`);
+    return _decorateAnimation({
+      script: 'animations/melee/elemental.js',
+      type: 'melee',
+      scale: 1.0,
+      speed: 300
+    }, info, attackMode, ELEMENTAL_GROUP_TYPES[info.weaponGroup]);
   }
 
   // 3. Default weapon group animation script
   if (info.weaponGroup && GROUP_ANIMATIONS[info.weaponGroup]) {
     const anim = GROUP_ANIMATIONS[info.weaponGroup];
     if (debug) console.log(`[ISAF] → Using default group script: ${info.weaponGroup}`);
-    return anim;
+    return _decorateAnimation(anim, info, attackMode);
   }
 
   // 4. Default weapon category animation script
   if (info.weaponCategory && CATEGORY_ANIMATIONS[info.weaponCategory]) {
     const anim = CATEGORY_ANIMATIONS[info.weaponCategory];
     if (debug) console.log(`[ISAF] → Using weapon category script: ${info.weaponCategory}`);
-    return anim;
+    return _decorateAnimation(anim, info, attackMode);
   }
 
   // 5. Damage type animation script
   if (info.primaryDamageType && DAMAGE_TYPE_ANIMATIONS[info.primaryDamageType]) {
     const anim = DAMAGE_TYPE_ANIMATIONS[info.primaryDamageType];
     if (debug) console.log(`[ISAF] → Using damage type script: ${info.primaryDamageType}`);
-    return anim;
+    return _decorateAnimation(anim, info, attackMode);
   }
 
   // 6. JB2A fallback
@@ -164,20 +205,57 @@ export function resolveAnimation(info) {
     const jb2aPath = jb2aKey ? JB2A_FALLBACKS[jb2aKey] : null;
     if (jb2aPath) {
       if (debug) console.log(`[ISAF] → Using JB2A fallback: ${jb2aPath}`);
-      const mode = getAttackMode(info);
-      return {
+      return _decorateAnimation({
         animation: jb2aPath,
-        type: mode,
+        type: attackMode,
         scale: 1.0,
-        speed: mode === 'melee' ? 300 : 800,
+        speed: attackMode === 'melee' ? 300 : 800,
         isJB2A: true
-      };
+      }, info, attackMode);
     }
   }
 
   // 7. No animation found
   if (debug) console.log(`[ISAF] → No animation found for: ${info.itemName}`);
   return null;
+}
+
+function _decorateAnimation(anim, info, attackMode, forcedElementalStyle = null) {
+  if (!anim) return null;
+
+  const elementalStyle = attackMode === 'melee'
+    ? (forcedElementalStyle ?? _getElementalStyle(info))
+    : null;
+
+  const sound = anim.sound ?? resolveOptionalSoundPath(attackMode, forcedElementalStyle ?? _getElementalStyle(info));
+
+  return {
+    ...anim,
+    type: anim.type ?? attackMode,
+    elementalStyle,
+    sound
+  };
+}
+
+function _getElementalStyle(info) {
+  const groupElement = info.weaponGroup ? ELEMENTAL_GROUP_TYPES[info.weaponGroup] : null;
+  const damageType = _normaliseDamageType(info.primaryDamageType);
+  if (groupElement) return groupElement;
+  if (damageType && MELEE_ELEMENTAL_TYPES.has(damageType)) return damageType;
+  return null;
+}
+
+function _normaliseDamageType(damageType) {
+  switch (damageType) {
+    case 'electric':
+    case 'electricity':
+      return 'electricity';
+    case 'cold':
+    case 'cryo':
+      return 'cold';
+    default:
+      return damageType ?? null;
+  }
 }
 
 // --- Private Helpers ---
