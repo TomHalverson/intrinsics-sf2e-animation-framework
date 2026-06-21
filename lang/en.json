@@ -16,6 +16,12 @@
   "ISAF.Settings.MissAnimation.Name": "Show Miss Effect",
   "ISAF.Settings.MissAnimation.Hint": "When 'Only Animate on Hit' is enabled, show a modified animation for misses (reduced opacity, offset target).",
 
+  "ISAF.Settings.CritEffects.Name": "Crit / Fumble Effects",
+  "ISAF.Settings.CritEffects.Hint": "On critical success, scale the projectile and add an impact burst at the target. On critical failure, replace the attack with a fizzle effect.",
+
+  "ISAF.Settings.TargetReactions.Name": "Target Reactions",
+  "ISAF.Settings.TargetReactions.Hint": "Play a tinted flash on the target when an attack hits. Critical hits use a larger, slower flash for added punch.",
+
   "ISAF.Settings.SoundEnabled.Name": "Enable Sounds",
   "ISAF.Settings.SoundEnabled.Hint": "Allow animation scripts to play sound effects.",
 

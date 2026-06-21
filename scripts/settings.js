@@ -39,6 +39,26 @@ export function registerSettings() {
     default: true
   });
 
+  // --- Crit / Fumble Effects ---
+  game.settings.register(MODULE_ID, 'critEffects', {
+    name: game.i18n.localize('ISAF.Settings.CritEffects.Name'),
+    hint: game.i18n.localize('ISAF.Settings.CritEffects.Hint'),
+    scope: 'world',
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
+  // --- Target Reactions ---
+  game.settings.register(MODULE_ID, 'targetReactions', {
+    name: game.i18n.localize('ISAF.Settings.TargetReactions.Name'),
+    hint: game.i18n.localize('ISAF.Settings.TargetReactions.Hint'),
+    scope: 'world',
+    config: true,
+    type: Boolean,
+    default: true
+  });
+
   // --- Animation Scale ---
   game.settings.register(MODULE_ID, 'animationScale', {
     name: game.i18n.localize('ISAF.Settings.AnimationScale.Name'),

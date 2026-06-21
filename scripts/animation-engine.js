@@ -96,12 +96,12 @@ export class AnimationEngine {
 
     if (onlyOnHit && !isHit) {
       if (getSetting('missAnimation')) {
-        await this._playAnimation(actor, item, false);
+        await this._playAnimation(actor, item, false, outcome);
       }
       return;
     }
 
-    await this._playAnimation(actor, item, isHit);
+    await this._playAnimation(actor, item, isHit, outcome);
   }
 
   // ==================================================
@@ -194,8 +194,9 @@ export class AnimationEngine {
    * @param {Actor} actor  - The attacking actor
    * @param {Item}  item   - The weapon item
    * @param {boolean} isHit - Whether the attack hit
+   * @param {string|null} outcome - Raw PF2E outcome string (criticalSuccess/success/failure/criticalFailure)
    */
-  async _playAnimation(actor, item, isHit = true) {
+  async _playAnimation(actor, item, isHit = true, outcome = null) {
     const debug = getSetting('debugMode');
 
     // 1. Resolve the source token
@@ -253,15 +254,44 @@ export class AnimationEngine {
       });
     }
 
-    // 6. Play the animation for each target
+    const critEffectsEnabled = getSetting('critEffects');
+    const isCriticalHit = critEffectsEnabled && outcome === 'criticalSuccess';
+    const isCriticalMiss = critEffectsEnabled && outcome === 'criticalFailure';
+
+    // Multi-strike: traits like `automatic` / `volley` / `scatter` drive the
+    // base shot count. A critical hit adds one extra shot for visual punch;
+    // a critical miss collapses to a single fizzle (fumble is one event).
+    const baseShotCount = Math.max(1, weaponInfo.shotCount ?? 1);
+    let shotCount = baseShotCount;
+    if (isCriticalHit && baseShotCount > 1) shotCount = baseShotCount + 1;
+    if (isCriticalMiss) shotCount = 1;
+    const shotSpacingMs = attackMode === 'melee' ? 80 : 120;
+
+    if (debug && shotCount > 1) {
+      console.log(`[ISAF] Multi-strike: ${shotCount} shots at ${shotSpacingMs}ms spacing.`);
+    }
+
+    // 6. Play the animation for each target × each shot.
+    // Shots after the first are dispatched without awaiting so they overlap
+    // naturally; we add a real-time stagger between dispatches.
     for (const targetToken of targets) {
-      try {
-        const animationTarget = this._resolveAnimationTarget(sourceToken, targetToken, attackMode, isHit);
+      const animationTarget = this._resolveAnimationTarget(sourceToken, targetToken, attackMode, isHit);
+
+      for (let shotIndex = 0; shotIndex < shotCount; shotIndex++) {
+        if (shotIndex > 0) {
+          await new Promise(resolve => setTimeout(resolve, shotSpacingMs));
+        }
+
         const context = {
           sourceToken,
           targetToken,
           animationTarget,
           isHit,
+          outcome,
+          criticalHit: isCriticalHit,
+          criticalMiss: isCriticalMiss,
+          shotIndex,
+          shotCount,
           scale: finalScale,
           speed: finalSpeed,
           attackMode,
@@ -269,44 +299,57 @@ export class AnimationEngine {
           soundVolume,
           soundEnabled,
           soundPath: animData.sound ?? null,
-          elementalStyle: animData.elementalStyle ?? null
+          elementalStyle: animData.elementalStyle ?? null,
+          variant: animData.variant ?? null,
+          rangeBand: animData.rangeBand ?? 'melee',
+          targetReactionsEnabled: getSetting('targetReactions')
         };
 
-        // Priority: macro override → animation script → legacy file path
-        if (animData.macro) {
-          // User has set a macro override
-          const success = await executeMacroOverride(animData.macro, context);
-          if (!success && debug) {
-            console.warn(`[ISAF] Macro override failed: ${animData.macro}, falling back.`);
-          }
-          if (success) continue;
-        }
-
-        if (animData.script) {
-          // Default: run the JS animation script
-          const success = await executeAnimationScript(animData.script, context);
-          if (success) continue;
-          if (debug) console.log(`[ISAF] Script not found: ${animData.script}, trying legacy/JB2A path.`);
-        }
-
-        // Fallback: legacy Sequencer file path (JB2A or direct .webm)
-        if (animData.animation) {
-          await this._playSequencerAnimation({
-            sourceToken,
-            targetToken,
-            animData,
-            attackMode,
-            finalScale,
-            finalSpeed,
-            soundEnabled,
-            soundVolume,
-            isHit,
-            animationTarget
-          });
-        }
-      } catch (err) {
-        console.error(`[ISAF] Error playing animation:`, err);
+        this._dispatchShot(animData, context, debug).catch(err => {
+          console.error(`[ISAF] Error playing animation:`, err);
+        });
       }
+    }
+  }
+
+  /**
+   * Dispatch a single shot through the macro / script / legacy file chain.
+   * Returns a promise that resolves when the underlying call resolves, but
+   * the caller does NOT await it for multi-shot sequences so shots overlap.
+   *
+   * @param {Object} animData
+   * @param {Object} context
+   * @param {boolean} debug
+   */
+  async _dispatchShot(animData, context, debug) {
+    // Priority: macro override → animation script → legacy file path
+    if (animData.macro) {
+      const success = await executeMacroOverride(animData.macro, context);
+      if (!success && debug) {
+        console.warn(`[ISAF] Macro override failed: ${animData.macro}, falling back.`);
+      }
+      if (success) return;
+    }
+
+    if (animData.script) {
+      const success = await executeAnimationScript(animData.script, context);
+      if (success) return;
+      if (debug) console.log(`[ISAF] Script not found: ${animData.script}, trying legacy/JB2A path.`);
+    }
+
+    if (animData.animation) {
+      await this._playSequencerAnimation({
+        sourceToken: context.sourceToken,
+        targetToken: context.targetToken,
+        animData,
+        attackMode: context.attackMode,
+        finalScale: context.scale,
+        finalSpeed: context.speed,
+        soundEnabled: context.soundEnabled,
+        soundVolume: context.soundVolume,
+        isHit: context.isHit,
+        animationTarget: context.animationTarget
+      });
     }
   }
 
@@ -337,11 +380,15 @@ export class AnimationEngine {
 
     const seq = new Sequence(MODULE_ID);
 
+    // Prefer the resolved variant's projectile file over the raw fallback path
+    // so the variant choice is visible even on the JB2A-fallback render path.
+    const effectFile = animData.variant?.projectile ?? animData.animation;
+
     if (attackMode === 'melee') {
       // --- Melee Animation ---
       // Play effect on the target location (no projectile travel)
       const effect = seq.effect()
-        .file(animData.animation)
+        .file(effectFile)
         .atLocation(sourceToken)
         .stretchTo(animationTarget)
         .scale(finalScale)
@@ -357,7 +404,7 @@ export class AnimationEngine {
       // --- Ranged Animation ---
       // Projectile travels from source to target
       const effect = seq.effect()
-        .file(animData.animation)
+        .file(effectFile)
         .atLocation(sourceToken)
         .stretchTo(animationTarget)
         .scale(finalScale)

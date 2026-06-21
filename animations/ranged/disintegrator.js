@@ -4,17 +4,39 @@
 // Used for the "disintegrator" weapon group in SF2E.
 // ============================================
 
-import { addAnimationSound, applyMissEffect, getAnimationTarget } from '../helpers.js';
+import {
+  addAnimationSound,
+  applyMissEffect,
+  getAnimationTarget,
+  applyCriticalScale,
+  addCriticalBurst,
+  addFumbleEffect,
+  addMuzzleFlash,
+  addImpactEffect,
+  addTargetReaction
+} from '../helpers.js';
 
 export default async function disintegrator(seq, context) {
-  const { sourceToken, scale } = context;
+  const { sourceToken, scale, variant } = context;
+
+  if (addFumbleEffect(seq, context)) {
+    addAnimationSound(seq, context);
+    return;
+  }
+
+  addMuzzleFlash(seq, context);
+
   const effect = seq.effect()
-    .file('jb2a.disintegrate.green')
+    .file(variant?.projectile ?? 'jb2a.disintegrate.green')
     .atLocation(sourceToken)
     .stretchTo(getAnimationTarget(context))
     .scale(scale)
     .zIndex(10);
 
   applyMissEffect(effect, context, { opacity: 0.5, randomRotation: false });
+  applyCriticalScale(effect, context);
+  addImpactEffect(seq, context);
+  addCriticalBurst(seq, context);
+  addTargetReaction(seq, context);
   addAnimationSound(seq, context);
 }

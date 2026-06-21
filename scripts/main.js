@@ -33,6 +33,7 @@ import { MODULE_ID, registerSettings, getSetting, setSetting } from './settings.
 import { AnimationEngine } from './animation-engine.js';
 import { extractWeaponInfo, resolveAnimation } from './weapon-resolver.js';
 import { clearScriptCache } from './animation-script-loader.js';
+import { buildVariantPool, rerollVariant, clearVariant } from './variants/variant-resolver.js';
 
 let engine = null;
 
@@ -124,22 +125,48 @@ async function _openItemOverrideDialog(item) {
   const weaponInfo = extractWeaponInfo(item);
   const attackMode = weaponInfo.range && weaponInfo.range > 0 ? 'ranged' : 'melee';
 
+  // Variant pool — empty if no BASE/TRAIT/GROUP/CATEGORY/DAMAGE_TYPE registry
+  // hit. Skip the variant section entirely when there's no choice to offer.
+  const { pool: variantPool, source: variantSource } = buildVariantPool(weaponInfo);
+  const assignedVariantId = item.getFlag?.(MODULE_ID, 'variant') ?? '';
+  const variantOptions = variantPool
+    .map(v => `<option value="${v.id}" ${assignedVariantId === v.id ? 'selected' : ''}>${v.label ?? v.id}</option>`)
+    .join('');
+  const variantSection = variantPool.length ? `
+      <div class="form-group">
+        <label>Visual Variant</label>
+        <div class="form-fields">
+          <select name="variant">
+            <option value="">— Auto (seeded from item id) —</option>
+            ${variantOptions}
+          </select>
+        </div>
+        <p class="hint" style="color: #8899aa; font-size: 11px;">
+          Pool source: <strong>${variantSource.kind}</strong>:<strong>${variantSource.key}</strong>
+          (${variantPool.length} option${variantPool.length === 1 ? '' : 's'}).
+          Use the Re-roll button to randomise.
+        </p>
+      </div>` : '';
+
   const content = `
     <form>
       <p style="color: #8899aa; font-size: 12px; margin-bottom: 10px;">
-        Set a Foundry macro to override this weapon's animation.
-        The macro receives <code>sourceToken</code>, <code>targetToken</code>,
-        <code>isHit</code>, <code>scale</code>, <code>speed</code>, and
-        <code>Sequence</code> as scope variables.
+        Set a Foundry macro to override this weapon's animation, or pick a
+        specific visual variant. The macro receives <code>sourceToken</code>,
+        <code>targetToken</code>, <code>isHit</code>, <code>scale</code>,
+        <code>speed</code>, <code>variant</code>, and <code>Sequence</code> as
+        scope variables.
       </p>
       <div class="form-group">
         <label>Weapon Info</label>
         <div class="form-fields" style="color: #8899aa; font-size: 12px;">
+          Base: <strong>${weaponInfo.baseItem ?? 'none'}</strong> |
           Group: <strong>${weaponInfo.weaponGroup ?? 'none'}</strong> |
           Category: <strong>${weaponInfo.weaponCategory ?? 'none'}</strong> |
           Mode: <strong>${attackMode}</strong>
         </div>
       </div>
+      ${variantSection}
       <div class="form-group">
         <label>Override Macro</label>
         <div class="form-fields">
@@ -164,49 +191,77 @@ async function _openItemOverrideDialog(item) {
     </form>
   `;
 
+  const buttons = {
+    save: {
+      label: 'Save',
+      icon: '<i class="fas fa-save"></i>',
+      callback: async (html) => {
+        const macro = html.find('[name="macro"]').val().trim();
+        const scale = parseFloat(html.find('[name="scale"]').val()) || 1.0;
+        const speed = parseInt(html.find('[name="speed"]').val()) || 800;
+        const variantId = html.find('[name="variant"]').val()?.trim() ?? '';
+
+        if (macro) {
+          overrides[item.uuid] = {
+            macro,
+            scale,
+            speed,
+            type: attackMode,
+            itemName: item.name
+          };
+        } else {
+          delete overrides[item.uuid];
+        }
+        await setSetting('itemOverrides', JSON.stringify(overrides));
+
+        // Variant: write if user picked one, clear if they chose "Auto".
+        if (variantPool.length) {
+          if (variantId) {
+            await item.setFlag(MODULE_ID, 'variant', variantId).catch(err => {
+              console.warn('[ISAF] Could not persist variant:', err);
+            });
+          } else if (assignedVariantId) {
+            await clearVariant(item);
+          }
+        }
+
+        ui.notifications.info(`Animation settings saved for ${item.name}.`);
+      }
+    }
+  };
+
+  if (variantPool.length > 1) {
+    buttons.reroll = {
+      label: 'Re-roll Variant',
+      icon: '<i class="fas fa-dice"></i>',
+      callback: async () => {
+        const picked = await rerollVariant(item, weaponInfo);
+        if (picked) {
+          ui.notifications.info(`Variant re-rolled: ${picked.label ?? picked.id} for ${item.name}.`);
+        }
+      }
+    };
+  }
+
+  buttons.clear = {
+    label: 'Clear Override',
+    icon: '<i class="fas fa-trash"></i>',
+    callback: async () => {
+      delete overrides[item.uuid];
+      await setSetting('itemOverrides', JSON.stringify(overrides));
+      ui.notifications.info(`Animation override cleared for ${item.name}.`);
+    }
+  };
+
+  buttons.cancel = {
+    label: 'Cancel',
+    icon: '<i class="fas fa-times"></i>'
+  };
+
   new Dialog({
     title: `Animation Override: ${item.name}`,
     content,
-    buttons: {
-      save: {
-        label: 'Save',
-        icon: '<i class="fas fa-save"></i>',
-        callback: async (html) => {
-          const macro = html.find('[name="macro"]').val().trim();
-          const scale = parseFloat(html.find('[name="scale"]').val()) || 1.0;
-          const speed = parseInt(html.find('[name="speed"]').val()) || 800;
-
-          if (macro) {
-            overrides[item.uuid] = {
-              macro,
-              scale,
-              speed,
-              type: attackMode,
-              itemName: item.name
-            };
-          } else {
-            // Clear override if no macro selected
-            delete overrides[item.uuid];
-          }
-
-          await setSetting('itemOverrides', JSON.stringify(overrides));
-          ui.notifications.info(`Animation override ${macro ? 'saved' : 'cleared'} for ${item.name}.`);
-        }
-      },
-      clear: {
-        label: 'Clear Override',
-        icon: '<i class="fas fa-trash"></i>',
-        callback: async () => {
-          delete overrides[item.uuid];
-          await setSetting('itemOverrides', JSON.stringify(overrides));
-          ui.notifications.info(`Animation override cleared for ${item.name}.`);
-        }
-      },
-      cancel: {
-        label: 'Cancel',
-        icon: '<i class="fas fa-times"></i>'
-      }
-    },
+    buttons,
     default: 'save'
   }).render(true);
 }
