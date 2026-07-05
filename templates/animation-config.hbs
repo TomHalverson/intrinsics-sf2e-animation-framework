@@ -49,7 +49,7 @@
               </select>
             </td>
             <td>
-              <button type="button" class="isaf-btn-test" title="Test this animation">
+              <button type="button" class="isaf-btn-test" data-action="test" title="Test this animation">
                 <i class="fas fa-play"></i>
               </button>
             </td>
@@ -93,7 +93,7 @@
               </select>
             </td>
             <td>
-              <button type="button" class="isaf-btn-test" title="Test this animation">
+              <button type="button" class="isaf-btn-test" data-action="test" title="Test this animation">
                 <i class="fas fa-play"></i>
               </button>
             </td>
@@ -128,7 +128,7 @@
                 {{/if}}
               </td>
               <td>
-                <button type="button" class="btn-remove-override" data-item-id="{{this.itemId}}">
+                <button type="button" class="btn-remove-override" data-action="removeOverride" data-item-id="{{this.itemId}}">
                   <i class="fas fa-trash"></i>
                 </button>
               </td>
@@ -148,10 +148,10 @@
 
   {{!-- Footer --}}
   <footer>
-    <button type="button" class="isaf-btn-refresh-cache">
+    <button type="button" class="isaf-btn-refresh-cache" data-action="refreshCache">
       <i class="fas fa-sync-alt"></i> Reload Scripts
     </button>
-    <button type="button" class="isaf-btn-reset">
+    <button type="button" class="isaf-btn-reset" data-action="reset">
       <i class="fas fa-undo"></i> {{localize "ISAF.Config.Reset"}}
     </button>
     <button type="submit" class="isaf-btn-save">

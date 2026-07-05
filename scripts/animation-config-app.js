@@ -2,46 +2,77 @@
 // Intrinsics SF2E Animation Framework
 // Animation Configuration Application
 // ============================================
+// V14: ApplicationV2 + HandlebarsApplicationMixin.
 
 import { MODULE_ID, getSetting, setSetting } from './settings.js';
 import { GROUP_ANIMATIONS, CATEGORY_ANIMATIONS, DAMAGE_TYPE_ANIMATIONS, getModulePath } from './animation-map.js';
 import { clearScriptCache } from './animation-script-loader.js';
 
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
+
 /**
- * FormApplication for configuring animation mappings.
- * Accessible via module settings → "Configure Animations" button.
+ * Form for configuring animation mappings.
+ * Opened from the settings menu via the AnimationConfigMenu launcher.
  *
  * The default animation for each weapon group is a JS script in the
  * animations/ folder. Users can override any group or individual
  * item with a Foundry macro.
  */
-export class AnimationConfigApp extends FormApplication {
+export class AnimationConfigApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
-  /** @override */
-  static get defaultOptions() {
-    return foundry.utils.mergeObject(super.defaultOptions, {
-      id: 'isaf-animation-config',
-      title: game.i18n.localize('ISAF.Config.Title'),
-      template: `modules/${MODULE_ID}/templates/animation-config.hbs`,
-      classes: ['isaf-config'],
+  static DEFAULT_OPTIONS = {
+    id: 'isaf-animation-config',
+    classes: ['isaf-config'],
+    tag: 'form',
+    window: {
+      title: 'ISAF.Config.Title',
+      icon: 'fas fa-film',
+      resizable: true
+    },
+    position: {
       width: 700,
-      height: 'auto',
-      resizable: true,
-      tabs: [{ navSelector: '.tabs', contentSelector: '.tab-content', initial: 'groups' }]
-    });
-  }
+      height: 'auto'
+    },
+    form: {
+      handler: AnimationConfigApp._onSubmit,
+      submitOnChange: false,
+      closeOnSubmit: false
+    },
+    actions: {
+      reset: AnimationConfigApp._onReset,
+      test: AnimationConfigApp._onTest,
+      removeOverride: AnimationConfigApp._onRemoveOverride,
+      refreshCache: AnimationConfigApp._onRefreshCache
+    }
+  };
+
+  static PARTS = {
+    form: {
+      template: `modules/${MODULE_ID}/templates/animation-config.hbs`
+    }
+  };
+
+  static TABS = {
+    primary: {
+      tabs: [
+        { id: 'groups', label: 'ISAF.Config.Tab.Groups', icon: 'fas fa-crosshairs' },
+        { id: 'categories', label: 'ISAF.Config.Tab.Categories', icon: 'fas fa-layer-group' },
+        { id: 'overrides', label: 'ISAF.Config.Tab.Overrides', icon: 'fas fa-sliders-h' }
+      ],
+      initial: 'groups',
+      labelPrefix: 'ISAF.Config.Tab'
+    }
+  };
 
   /** @override */
-  getData() {
+  async _prepareContext(_options) {
     const customMappings = this._getCustomMappings();
     const itemOverrides = this._getItemOverrides();
 
-    // Build macro list for dropdowns
     const macros = game.macros.contents
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(m => ({ id: m.id, name: m.name }));
 
-    // Build weapon group rows
     const groupRows = Object.entries(GROUP_ANIMATIONS).map(([key, data]) => ({
       key,
       label: game.i18n.localize(`ISAF.Config.GroupLabel.${key}`),
@@ -51,7 +82,6 @@ export class AnimationConfigApp extends FormApplication {
       speed: customMappings[key]?.speed ?? data.speed ?? 800
     }));
 
-    // Build weapon category rows
     const categoryRows = Object.entries(CATEGORY_ANIMATIONS).map(([key, data]) => ({
       key,
       label: game.i18n.localize(`ISAF.Config.CategoryLabel.${key}`),
@@ -61,7 +91,6 @@ export class AnimationConfigApp extends FormApplication {
       speed: customMappings[`cat_${key}`]?.speed ?? data.speed ?? 800
     }));
 
-    // Build item override rows
     const overrideRows = Object.entries(itemOverrides).map(([itemId, data]) => {
       const macroName = data.macro ? (game.macros.get(data.macro)?.name ?? data.macro) : '';
       return {
@@ -83,17 +112,26 @@ export class AnimationConfigApp extends FormApplication {
     };
   }
 
-  /** @override */
-  async _updateObject(event, formData) {
+  // ============================================
+  // V2 form submit handler (replaces V1 _updateObject)
+  // ============================================
+
+  /**
+   * @this AnimationConfigApp
+   * @param {SubmitEvent} _event
+   * @param {HTMLFormElement} _form
+   * @param {FormDataExtended} formData
+   */
+  static async _onSubmit(_event, _form, formData) {
+    const fields = formData.object;
     const customMappings = {};
 
-    // Process form data — fields are named like "group_{key}_macro", "cat_{key}_macro", etc.
-    for (const [field, value] of Object.entries(formData)) {
+    for (const [field, value] of Object.entries(fields)) {
       const groupMatch = field.match(/^group_(.+?)_(macro|scale|speed)$/);
       if (groupMatch) {
         const [, key, prop] = groupMatch;
         if (!customMappings[key]) customMappings[key] = {};
-        customMappings[key][prop] = prop === 'scale' || prop === 'speed' ? Number(value) : value;
+        customMappings[key][prop] = (prop === 'scale' || prop === 'speed') ? Number(value) : value;
         continue;
       }
 
@@ -102,75 +140,69 @@ export class AnimationConfigApp extends FormApplication {
         const [, key, prop] = catMatch;
         const mappingKey = `cat_${key}`;
         if (!customMappings[mappingKey]) customMappings[mappingKey] = {};
-        customMappings[mappingKey][prop] = prop === 'scale' || prop === 'speed' ? Number(value) : value;
+        customMappings[mappingKey][prop] = (prop === 'scale' || prop === 'speed') ? Number(value) : value;
         continue;
       }
     }
 
-    // Remove entries where no macro override is set (user cleared the override)
+    // Drop entries with no macro override (user cleared it).
     for (const [key, data] of Object.entries(customMappings)) {
       if (!data.macro) delete customMappings[key];
     }
 
     await setSetting('customMappings', JSON.stringify(customMappings));
-
     ui.notifications.info('Animation mappings saved.');
   }
 
-  /** @override */
-  activateListeners(html) {
-    super.activateListeners(html);
+  // ============================================
+  // Action handlers — V2 dispatches via data-action on each button.
+  // `this` is the application instance.
+  // ============================================
 
-    // Reset button
-    html.find('.isaf-btn-reset').on('click', async (ev) => {
-      ev.preventDefault();
-      await setSetting('customMappings', '{}');
-      await setSetting('itemOverrides', '{}');
-      clearScriptCache();
-      this.render(true);
-      ui.notifications.info('Animation mappings reset to defaults.');
-    });
-
-    // Test buttons
-    html.find('.isaf-btn-test').on('click', (ev) => {
-      ev.preventDefault();
-      const row = ev.currentTarget.closest('tr');
-      const macroId = row?.querySelector('select[name$="_macro"]')?.value;
-      const scriptPath = row?.querySelector('.isaf-default-script')?.dataset?.script;
-
-      if (macroId) {
-        this._testMacro(macroId);
-      } else if (scriptPath) {
-        this._testScript(scriptPath);
-      } else {
-        ui.notifications.warn('No animation script or macro to test.');
-      }
-    });
-
-    // Remove override buttons
-    html.find('.btn-remove-override').on('click', async (ev) => {
-      ev.preventDefault();
-      const itemId = ev.currentTarget.dataset.itemId;
-      if (itemId) {
-        const overrides = this._getItemOverrides();
-        delete overrides[itemId];
-        await setSetting('itemOverrides', JSON.stringify(overrides));
-        this.render(true);
-      }
-    });
-
-    // Refresh script cache button
-    html.find('.isaf-btn-refresh-cache').on('click', (ev) => {
-      ev.preventDefault();
-      clearScriptCache();
-      ui.notifications.info('Animation script cache cleared. Scripts will be re-loaded on next use.');
-    });
+  /** @this AnimationConfigApp */
+  static async _onReset() {
+    await setSetting('customMappings', '{}');
+    await setSetting('itemOverrides', '{}');
+    clearScriptCache();
+    this.render(true);
+    ui.notifications.info('Animation mappings reset to defaults.');
   }
 
-  /**
-   * Test a macro by executing it with the controlled token.
-   * @param {string} macroId
-   */
+  /** @this AnimationConfigApp */
+  static async _onTest(_event, target) {
+    const row = target.closest('tr');
+    const macroId = row?.querySelector('select[name$="_macro"]')?.value;
+    const scriptPath = row?.querySelector('.isaf-default-script')?.dataset?.script;
+
+    if (macroId) {
+      this._testMacro(macroId);
+    } else if (scriptPath) {
+      this._testScript(scriptPath);
+    } else {
+      ui.notifications.warn('No animation script or macro to test.');
+    }
+  }
+
+  /** @this AnimationConfigApp */
+  static async _onRemoveOverride(_event, target) {
+    const itemId = target.dataset.itemId;
+    if (!itemId) return;
+    const overrides = this._getItemOverrides();
+    delete overrides[itemId];
+    await setSetting('itemOverrides', JSON.stringify(overrides));
+    this.render(true);
+  }
+
+  /** @this AnimationConfigApp */
+  static _onRefreshCache() {
+    clearScriptCache();
+    ui.notifications.info('Animation script cache cleared. Scripts will be re-loaded on next use.');
+  }
+
+  // ============================================
+  // Test helpers (unchanged behavior from V1)
+  // ============================================
+
   async _testMacro(macroId) {
     const macro = game.macros.get(macroId);
     if (!macro) {
@@ -185,7 +217,6 @@ export class AnimationConfigApp extends FormApplication {
     }
 
     try {
-      const seq = new Sequence(MODULE_ID);
       await macro.execute({
         sourceToken: token,
         targetToken: token,
@@ -205,10 +236,6 @@ export class AnimationConfigApp extends FormApplication {
     }
   }
 
-  /**
-   * Test-play an animation script on a controlled token.
-   * @param {string} scriptPath
-   */
   async _testScript(scriptPath) {
     if (typeof Sequence === 'undefined') {
       ui.notifications.error('Sequencer module is required to preview animations.');
@@ -243,10 +270,6 @@ export class AnimationConfigApp extends FormApplication {
     }
   }
 
-  /**
-   * Parse custom mappings from settings.
-   * @returns {Object}
-   */
   _getCustomMappings() {
     try {
       return JSON.parse(getSetting('customMappings') || '{}');
@@ -255,10 +278,6 @@ export class AnimationConfigApp extends FormApplication {
     }
   }
 
-  /**
-   * Parse item overrides from settings.
-   * @returns {Object}
-   */
   _getItemOverrides() {
     try {
       return JSON.parse(getSetting('itemOverrides') || '{}');

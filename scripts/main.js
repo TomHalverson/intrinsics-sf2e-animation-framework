@@ -191,15 +191,18 @@ async function _openItemOverrideDialog(item) {
     </form>
   `;
 
-  const buttons = {
-    save: {
+  const buttons = [
+    {
+      action: 'save',
       label: 'Save',
-      icon: '<i class="fas fa-save"></i>',
-      callback: async (html) => {
-        const macro = html.find('[name="macro"]').val().trim();
-        const scale = parseFloat(html.find('[name="scale"]').val()) || 1.0;
-        const speed = parseInt(html.find('[name="speed"]').val()) || 800;
-        const variantId = html.find('[name="variant"]').val()?.trim() ?? '';
+      icon: 'fas fa-save',
+      default: true,
+      callback: async (_event, _button, dialog) => {
+        const root = dialog.element;
+        const macro = root.querySelector('[name="macro"]').value.trim();
+        const scale = parseFloat(root.querySelector('[name="scale"]').value) || 1.0;
+        const speed = parseInt(root.querySelector('[name="speed"]').value, 10) || 800;
+        const variantId = root.querySelector('[name="variant"]')?.value?.trim() ?? '';
 
         if (macro) {
           overrides[item.uuid] = {
@@ -228,42 +231,44 @@ async function _openItemOverrideDialog(item) {
         ui.notifications.info(`Animation settings saved for ${item.name}.`);
       }
     }
-  };
+  ];
 
   if (variantPool.length > 1) {
-    buttons.reroll = {
+    buttons.push({
+      action: 'reroll',
       label: 'Re-roll Variant',
-      icon: '<i class="fas fa-dice"></i>',
+      icon: 'fas fa-dice',
       callback: async () => {
         const picked = await rerollVariant(item, weaponInfo);
         if (picked) {
           ui.notifications.info(`Variant re-rolled: ${picked.label ?? picked.id} for ${item.name}.`);
         }
       }
-    };
+    });
   }
 
-  buttons.clear = {
+  buttons.push({
+    action: 'clear',
     label: 'Clear Override',
-    icon: '<i class="fas fa-trash"></i>',
+    icon: 'fas fa-trash',
     callback: async () => {
       delete overrides[item.uuid];
       await setSetting('itemOverrides', JSON.stringify(overrides));
       ui.notifications.info(`Animation override cleared for ${item.name}.`);
     }
-  };
+  });
 
-  buttons.cancel = {
+  buttons.push({
+    action: 'cancel',
     label: 'Cancel',
-    icon: '<i class="fas fa-times"></i>'
-  };
+    icon: 'fas fa-times'
+  });
 
-  new Dialog({
-    title: `Animation Override: ${item.name}`,
+  await foundry.applications.api.DialogV2.wait({
+    window: { title: `Animation Override: ${item.name}` },
     content,
-    buttons,
-    default: 'save'
-  }).render(true);
+    buttons
+  });
 }
 
 /**

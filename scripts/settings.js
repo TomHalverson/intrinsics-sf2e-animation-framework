@@ -172,21 +172,17 @@ export async function setSetting(key, value) {
 }
 
 /**
- * Placeholder FormApplication for the settings menu button.
- * The actual UI is in AnimationConfigApp — this just opens it.
+ * Placeholder ApplicationV2 stub for the settings menu button.
+ * The actual UI is in AnimationConfigApp — this just opens it and closes
+ * itself immediately so V14's registerMenu still gets a class to instantiate.
  */
-class AnimationConfigMenu extends FormApplication {
-  constructor(...args) {
-    super(...args);
-    // Dynamically import and open the config app
+class AnimationConfigMenu extends foundry.applications.api.ApplicationV2 {
+  constructor(options = {}) {
+    super(options);
+    // Open the real config app, then close this stub before it ever renders.
     import('./animation-config-app.js').then(module => {
       new module.AnimationConfigApp().render(true);
     });
+    this.close({ animate: false }).catch(() => {});
   }
-
-  /** @override */
-  async _updateObject() {}
-
-  /** @override */
-  getData() { return {}; }
 }
